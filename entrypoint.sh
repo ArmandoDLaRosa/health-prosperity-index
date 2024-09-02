@@ -1,4 +1,5 @@
 #!/bin/bash
+echo "Current working directory: $(pwd)"
 
 mkdir -p /var/run/mysqld
 chown -R mysql:mysql /var/run/mysqld
