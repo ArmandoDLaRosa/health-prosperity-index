@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     libmariadb-dev \
     gcc \
     curl \
+    cron \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app

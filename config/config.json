@@ -6,7 +6,7 @@
         "database": "world_indexes_dev"
     },
     "production": {
-        "host": "db",
+        "host": "localhost",
         "user": "admin",
         "password": "password",
         "database": "world_indexes"
