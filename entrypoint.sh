@@ -15,16 +15,16 @@ done
 DB_EXISTS=$(mysql -uroot -p$MYSQL_ROOT_PASSWORD -e "SHOW DATABASES LIKE '$MYSQL_DB';" | grep "$MYSQL_DB" > /dev/null; echo "$?")
 if [ $DB_EXISTS -eq 1 ]; then
     echo "Database $MYSQL_DB does not exist. Initializing database..."
-    python3 /usr/src/app/health-prosperity-index/src/init_db.py
+    python3 /usr/src/app/src/init_db.py
 else
     echo "Database $MYSQL_DB already exists."
 fi
 
 
 echo "Setting up cron job..."
-(crontab -l ; echo "0 0 * * * python /usr/src/app/health-prosperity-index/src/update_index.py >> /var/log/cron.log 2>&1") | crontab -
+(crontab -l ; echo "0 0 * * * python /usr/src/app/src/update_index.py >> /var/log/cron.log 2>&1") | crontab -
 
-cd /usr/src/app/health-prosperity-index
+cd /usr/src/app/
 
 echo "Applying database migrations..."
 alembic upgrade head
