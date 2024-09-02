@@ -18,12 +18,10 @@ def initialize_database(env):
     )
     cursor = db.cursor()
 
-    
     cursor.execute(f"CREATE USER IF NOT EXISTS '{db_config['user']}'@'%' IDENTIFIED BY '{db_config['password']}'")
     cursor.execute(f"CREATE DATABASE IF NOT EXISTS {db_config['database']}")
     cursor.execute(f"GRANT ALL PRIVILEGES ON {db_config['database']}.* TO '{db_config['user']}'@'%'")
-    cursor.execute(f"FLUSH PRIVILEGES")
-
+    cursor.execute("FLUSH PRIVILEGES")
 
     cursor.execute(f"USE {db_config['database']}")
 
