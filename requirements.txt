@@ -1,0 +1,8 @@
+streamlit
+pandas
+requests
+mysql-connector-python
+pytest
+coverage
+alembic
+SQLAlchemy

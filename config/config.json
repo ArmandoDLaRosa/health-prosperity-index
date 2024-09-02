@@ -1,0 +1,14 @@
+{
+    "development": {
+        "host": "localhost",
+        "user": "auth_user",
+        "password": "Aauth123",
+        "database": "world_indexes_dev"
+    },
+    "production": {
+        "host": "db",
+        "user": "admin",
+        "password": "password",
+        "database": "world_indexes"
+    }
+}
