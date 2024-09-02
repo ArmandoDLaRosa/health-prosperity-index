@@ -3,6 +3,10 @@
 mkdir -p /var/run/mysqld
 chown -R mysql:mysql /var/run/mysqld
 
+WORKDIR /usr/src/app/health-prosperity-index
+
+echo "hI"
+
 echo "Starting MariaDB service..."
 /usr/bin/mysqld_safe --datadir='/var/lib/mysql' &
 
