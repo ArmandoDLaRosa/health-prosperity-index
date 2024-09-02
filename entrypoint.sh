@@ -14,7 +14,7 @@ done
 DB_EXISTS=$(mysql -uroot -p$MYSQL_ROOT_PASSWORD -e "SHOW DATABASES LIKE '$MYSQL_DB';" | grep "$MYSQL_DB" > /dev/null; echo "$?")
 if [ $DB_EXISTS -eq 1 ]; then
     echo "Database $MYSQL_DB does not exist. Initializing database..."
-    python3 src/init_db.py
+    python3 /usr/src/app/health-prosperity-index/src/init_db.py
 else
     echo "Database $MYSQL_DB already exists."
 fi
