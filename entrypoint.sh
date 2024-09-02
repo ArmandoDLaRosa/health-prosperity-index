@@ -3,10 +3,6 @@
 mkdir -p /var/run/mysqld
 chown -R mysql:mysql /var/run/mysqld
 
-WORKDIR /usr/src/app/health-prosperity-index
-
-echo "hI"
-
 echo "Starting MariaDB service..."
 /usr/bin/mysqld_safe --datadir='/var/lib/mysql' &
 
@@ -23,11 +19,14 @@ else
     echo "Database $MYSQL_DB already exists."
 fi
 
-echo "Applying database migrations..."
-alembic upgrade head
 
 echo "Setting up cron job..."
 (crontab -l ; echo "0 0 * * * python /usr/src/app/health-prosperity-index/src/update_index.py >> /var/log/cron.log 2>&1") | crontab -
+
+cd /usr/src/app/health-prosperity-index
+
+echo "Applying database migrations..."
+alembic upgrade head
 
 echo "Starting cron service..."
 service cron start
