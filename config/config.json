@@ -7,8 +7,8 @@
     },
     "production": {
         "host": "localhost",
-        "user": "root",
-        "password": "password",
+        "user": "auth_user",
+        "password": "Aauth123",
         "database": "world_indexes"
     }
 }
