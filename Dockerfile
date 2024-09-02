@@ -32,7 +32,7 @@ RUN mkdir -p /var/run/mysqld && chown mysql:mysql /var/run/mysqld
 ENV MYSQL_USER=admin
 ENV MYSQL_PASSWORD=password
 ENV MYSQL_HOST=localhost
-ENV MYSQL_DB=health_prosperity
+ENV MYSQL_DB=world_indexes
 ENV MYSQL_ROOT_PASSWORD=root_password
 ENV ENVIRONMENT=production
 
