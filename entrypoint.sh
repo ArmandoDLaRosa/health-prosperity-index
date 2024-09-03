@@ -32,10 +32,10 @@ CRONTAB_EXISTS=$(crontab -l 2>/dev/null | grep -v "no crontab" | wc -l)
 
 if [ $CRONTAB_EXISTS -eq 0 ]; then
     echo "No existing crontab found. Creating a new one."
-    echo "*/5 * * * * python /usr/src/app/src/update_index.py >> /var/log/cron.log 2>&1" | crontab -
+    echo "*/5 * * * * ENVIRONMENT=production /usr/local/bin/python /usr/src/app/src/update_index.py >> /var/log/cron.log 2>&1" | crontab -
 else
     echo "Appending to existing crontab."
-    (crontab -l ; echo "*/5 * * * * python /usr/src/app/src/update_index.py >> /var/log/cron.log 2>&1") | crontab -
+    (crontab -l ; echo "*/5 * * * * ENVIRONMENT=production /usr/local/bin/python /usr/src/app/src/update_index.py >> /var/log/cron.log 2>&1") | crontab -
 fi
 
 cd /usr/src/app/
