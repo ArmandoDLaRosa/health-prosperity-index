@@ -7,3 +7,5 @@ coverage==7.3.2
 alembic==1.11.1
 SQLAlchemy==2.0.21
 pymysql
+pytest-cov
+requests-mock
