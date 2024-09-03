@@ -25,8 +25,6 @@ else
     echo "Database $MYSQL_DB already exists."
 fi
 
-echo "Initializing database schema and tables..."
-python3 /usr/src/app/src/init_db.py
 
 echo "Setting up cron job..."
 (crontab -l ; echo "0 0 * * * python3 /usr/src/app/src/update_index.py >> /var/log/cron.log 2>&1") | crontab -
