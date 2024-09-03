@@ -20,6 +20,7 @@ COPY --from=build-stage /usr/local/lib/python3.9/site-packages/ /usr/local/lib/p
 COPY --from=build-stage /usr/local/bin/ /usr/local/bin/
 
 RUN apt-get update && apt-get install -y \
+    cron \
     mariadb-server \
     mariadb-client \
     && rm -rf /var/lib/apt/lists/*

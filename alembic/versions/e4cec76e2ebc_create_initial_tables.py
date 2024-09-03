@@ -21,8 +21,10 @@ def upgrade():
     op.execute("""
         CREATE TABLE index_table (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            date DATETIME,
-            index_value FLOAT
+            year INT UNIQUE,
+            index_value FLOAT,
+            created_at DATETIME,
+            updated_at DATETIME
         );
     """)
 
