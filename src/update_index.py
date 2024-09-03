@@ -1,100 +1,97 @@
-import pytest
-from unittest.mock import patch, MagicMock, ANY
+import requests
+import mysql.connector
+import json
 from datetime import datetime
-from src.update_index import update_index_in_db, calculate_prosperity_index, fetch_data_from_api, log_error
+import numpy as np
+import smtplib
+from email.mime.text import MIMEText
 
-# Mocking the API call for fetch_data_from_api
-@patch('your_script_name.requests.get')
-def test_fetch_data_from_api(mock_get):
-    # Mock the API response
-    mock_get.return_value.status_code = 200
-    mock_get.return_value.json.return_value = {
-        "data": [{"Year": 2022, "Population": 2500000000, "Household Income": 800000000, "Average Wage": 25000}]
-    }
+API_URL = "https://datausa.io/api/data?some-endpoint"
 
-    # Call the function (URL doesn't matter because requests.get is mocked)
-    data = fetch_data_from_api("https://datausa.io/api/data?measures=Population,Household%20Income,Average%20Wage")
+def load_config(env):
+    with open('/usr/src/app/config/config.json', 'r') as config_file:
+        config = json.load(config_file)
+        return config[env]
+
+def fetch_data_from_api():
+    try:
+        response = requests.get(API_URL)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        log_error(f"API request failed: {e}")
+        return None
+
+def normalize(value, min_value, max_value):
+    return (value - min_value) / (max_value - min_value)
+
+def calculate_index(data):
+    life_expectancy = data.get("life_expectancy")
+    median_income = data.get("median_income")
+    education_level = data.get("education_level")
+    unemployment_rate = data.get("unemployment_rate")
+
+    life_expectancy_norm = normalize(life_expectancy, 50, 90)
+    median_income_norm = normalize(median_income, 20000, 100000)
+    education_level_norm = normalize(education_level, 0, 1)
+    unemployment_rate_norm = normalize(unemployment_rate, 0, 10)
+
+    index = (0.4 * life_expectancy_norm +
+             0.3 * median_income_norm +
+             0.2 * education_level_norm -
+             0.1 * unemployment_rate_norm)
     
-    # Validate that the data fetched is as expected
-    assert len(data) == 1
-    assert data[0]["Year"] == 2022
-    assert data[0]["Population"] == 2500000000
-    assert data[0]["Household Income"] == 800000000
-    assert data[0]["Average Wage"] == 25000
+    return index
 
-    # Ensure the mock was called as expected
-    mock_get.assert_called_once_with("https://datausa.io/api/data?measures=Population,Household%20Income,Average%20Wage")
+def update_index_in_db(index, env='production'):
+    db_config = load_config(env)
 
-# Test for calculate_prosperity_index function
-def test_calculate_prosperity_index():
-    record = {
-        "Population": 2500000000,
-        "Household Income": 800000000,
-        "Average Wage": 25000
-    }
-    min_values = {
-        "Population": 2400000000,
-        "Household Income": 780000000,
-        "Average Wage": 20000
-    }
-    max_values = {
-        "Population": 2600000000,
-        "Household Income": 850000000,
-        "Average Wage": 30000
-    }
+    try:
+        db = mysql.connector.connect(
+            host=db_config['host'],
+            user=db_config['user'],
+            password=db_config['password'],
+            database=db_config['database']
+        )
+        cursor = db.cursor()
+        cursor.execute("INSERT INTO index_table (date, index_value) VALUES (%s, %s)",
+                       (datetime.now(), index))
+        db.commit()
+        cursor.close()
+        db.close()
+    except mysql.connector.Error as e:
+        log_error(f"Database update failed: {e}")
 
-    # Manually calculated expected index value
-    expected_index = (0.5 + 0.3077 + 0.5) / 3
+def log_error(message):
+    with open("/var/log/app_errors.log", "a") as log_file:
+        log_file.write(f"{datetime.now()} - ERROR - {message}\n")
 
-    result = calculate_prosperity_index(record, min_values, max_values)
-    
-    # Allow a small margin of error for floating-point calculations
-    assert pytest.approx(result, 0.001) == expected_index
+def send_email_alert(subject, body):
+    sender_email = "your-email@gmail.com"
+    receiver_email = "recipient-email@gmail.com"
+    password = "your-app-password"
 
-# Mocking the database connection and cursor for update_index_in_db
-@patch('your_script_name.mysql.connector.connect')
-def test_update_index_in_db(mock_connect):
-    # Mock the database connection and cursor
-    mock_conn = MagicMock()
-    mock_cursor = mock_conn.cursor.return_value
-    mock_connect.return_value = mock_conn
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = sender_email
+    msg['To'] = receiver_email
 
-    record = {"Year": 2022}
-    index_value = 0.75
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(sender_email, password)
+            server.sendmail(sender_email, receiver_email, msg.as_string())
+    except Exception as e:
+        with open("/var/log/app_errors.log", "a") as log_file:
+            log_file.write(f"{datetime.now()} - ERROR - Failed to send email: {e}\n")
 
-    # Execute the function to update the index in the database
-    update_index_in_db(record, index_value)
+def main():
+    data = fetch_data_from_api()
+    if data:
+        index = calculate_index(data)
+        update_index_in_db(index)
+    else:
+        log_error("Failed to fetch data from API")
+        send_email_alert("Cron Job Failure", "Failed to fetch data from API")
 
-    # Verify the SQL execution with correct parameters
-    mock_cursor.execute.assert_called_once_with(
-        """
-        INSERT INTO index_table (year, index_value, created_at, updated_at)
-        VALUES (%s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-            index_value = VALUES(index_value),
-            updated_at = VALUES(updated_at)
-        """,
-        (2022, index_value, ANY, ANY)
-    )
-
-    # Ensure the commit was made to the database
-    mock_conn.commit.assert_called_once()
-
-    # Ensure that the cursor and connection are closed after execution
-    mock_cursor.close.assert_called_once()
-    mock_conn.close.assert_called_once()
-
-# Testing logging functionality
-@patch('your_script_name.open', new_callable=MagicMock)
-def test_log_error(mock_open):
-    log_error("Test error message")
-
-    # Verify that the log file is opened correctly
-    mock_open.assert_called_once_with("/var/log/app_errors.log", "a")
-    
-    # Ensure that the error message is correctly formatted and written to the log
-    mock_open.return_value.write.assert_called_once_with(f"{datetime.now()} - ERROR - Test error message\n")
-
-# Running the tests
 if __name__ == "__main__":
-    pytest.main()
+    main()

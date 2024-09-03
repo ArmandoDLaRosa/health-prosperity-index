@@ -27,7 +27,16 @@ fi
 
 
 echo "Setting up cron job..."
-(crontab -l ; echo "0 0 * * * python3 /usr/src/app/src/update_index.py >> /var/log/cron.log 2>&1") | crontab -
+
+CRONTAB_EXISTS=$(crontab -l 2>/dev/null | grep -v "no crontab" | wc -l)
+
+if [ $CRONTAB_EXISTS -eq 0 ]; then
+    echo "No existing crontab found. Creating a new one."
+    echo "0 0 * * * python3 /usr/src/app/src/update_index.py >> /var/log/cron.log 2>&1" | crontab -
+else
+    echo "Appending to existing crontab."
+    (crontab -l ; echo "0 0 * * * python3 /usr/src/app/src/update_index.py >> /var/log/cron.log 2>&1") | crontab -
+fi
 
 cd /usr/src/app/
 
@@ -38,3 +47,5 @@ echo "Starting cron service..."
 service cron start
 
 exec "$@"
+
+tail -f /var/log/cron.log
