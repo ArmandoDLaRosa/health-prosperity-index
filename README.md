@@ -17,13 +17,13 @@ Alright, let’s get you set up.
 2. **Build the Docker Image**:
    - Let’s build this thing. Just run:
      ```bash
-     docker build -t health-prosperity-app .
+     docker build -t health-prosperity-index-app .
      ```
 
 3. **Run the Docker Container**:
    - Now, spin up the container with:
      ```bash
-     docker run -d -p 8501:8501 health-prosperity-app
+     docker run -d -p 8501:8501  -p 3307:3306 health-prosperity-index-app
      ```
    - After that, open your browser and head over to [http://localhost:8501](http://localhost:8501). You’ll see the index data and logs there. Cool, right?
 

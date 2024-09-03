@@ -1,3 +1,5 @@
+# Dockerfile
+
 FROM python:3.9-slim AS build-stage
 
 RUN apt-get update && apt-get install -y \
@@ -26,6 +28,9 @@ RUN apt-get update && apt-get install -y \
     mariadb-client \
     && rm -rf /var/lib/apt/lists/*
 
+# Create a custom MySQL configuration file
+RUN echo "[mysqld]\nbind-address = 0.0.0.0" > /etc/mysql/my.cnf
+
 RUN mkdir -p /var/run/mysqld && chown mysql:mysql /var/run/mysqld
 
 ENV MYSQL_USER=admin
@@ -38,6 +43,7 @@ ENV ENVIRONMENT=production
 RUN chmod +x /usr/src/app/entrypoint.sh
 
 EXPOSE 8501
+EXPOSE 3306
 
 ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
 
