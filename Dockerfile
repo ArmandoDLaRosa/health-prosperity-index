@@ -1,4 +1,3 @@
-# Build stage
 FROM python:3.9-slim AS build-stage
 
 RUN apt-get update && apt-get install -y \
@@ -14,7 +13,6 @@ RUN git clone https://github.com/ArmandoDLaRosa/health-prosperity-index.git .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Production stage
 FROM python:3.9-slim
 
 COPY --from=build-stage /usr/src/app /usr/src/app
