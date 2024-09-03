@@ -36,6 +36,20 @@ def upgrade():
             message TEXT
         );
     """)
+    
+    op.execute("""
+        CREATE TABLE index_components (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            year INT UNIQUE,
+            population BIGINT,
+            household_income BIGINT,
+            number_of_finishers INT,
+            number_covered BIGINT,
+            household_ownership BIGINT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+    """)
 
 def downgrade():
     op.execute("DROP TABLE IF EXISTS cron_job_logs;")

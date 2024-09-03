@@ -1,50 +1,93 @@
-import requests
-import mysql.connector
 import json
+import mysql.connector
+import requests
 from datetime import datetime
-import numpy as np
-import smtplib
-from email.mime.text import MIMEText
+import os
 
-API_URL = "https://datausa.io/api/data?some-endpoint"
+ENV = os.getenv('ENVIRONMENT', 'development')
 
-def load_config(env):
-    with open('/usr/src/app/config/config.json', 'r') as config_file:
-        config = json.load(config_file)
-        return config[env]
+WEIGHTS = {
+    "Population": 0.2,
+    "Household Income": 0.3,
+    "Number Of Finishers": 0.2,
+    "Number Covered": 0.2,
+    "Household Ownership": 0.1
+}
 
-def fetch_data_from_api():
-    try:
-        response = requests.get(API_URL)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        log_error(f"API request failed: {e}")
-        return None
+API_URL = (
+    "https://datausa.io/api/data?measures="
+    "Population,"
+    "Household Income,"
+    "Number Of Finishers,"
+    "Number Covered,"
+    "Household Ownership"
+)
 
 def normalize(value, min_value, max_value):
-    return (value - min_value) / (max_value - min_value)
+    return (value - min_value) / (max_value - min_value) if max_value > min_value else 0
 
-def calculate_index(data):
-    life_expectancy = data.get("life_expectancy")
-    median_income = data.get("median_income")
-    education_level = data.get("education_level")
-    unemployment_rate = data.get("unemployment_rate")
+def impute_missing_values(item, historical_data, key):
+    if key in item:
+        return item[key]
+    else:
+        return sum(hist_item.get(key, 0) for hist_item in historical_data) / len(historical_data)
 
-    life_expectancy_norm = normalize(life_expectancy, 50, 90)
-    median_income_norm = normalize(median_income, 20000, 100000)
-    education_level_norm = normalize(education_level, 0, 1)
-    unemployment_rate_norm = normalize(unemployment_rate, 0, 10)
-
-    index = (0.4 * life_expectancy_norm +
-             0.3 * median_income_norm +
-             0.2 * education_level_norm -
-             0.1 * unemployment_rate_norm)
+def calculate_index(data, historical_data):
+    all_data = data + historical_data
     
-    return index
+    indices = []
+    min_values = {key: min(item.get(key, 0) for item in all_data) for key in WEIGHTS}
+    max_values = {key: max(item.get(key, 0) for item in all_data) for key in WEIGHTS}
 
-def update_index_in_db(index, env='production'):
-    db_config = load_config(env)
+    for item in data:
+        normalized_values = {}
+        for key in WEIGHTS:
+            value = impute_missing_values(item, all_data, key)
+            normalized_values[key] = normalize(value, min_values[key], max_values[key])
+        
+        index_value = sum(normalized_values[key] * WEIGHTS[key] for key in WEIGHTS)
+        indices.append({
+            "year": int(item["Year"]),
+            "index_value": index_value,
+            "components": item  
+        })
+    return indices
+
+
+def load_config():
+    source = '/usr/src/app/config/config.json' if ENV == 'production' else '/home/armando/repos/health-prosperity-index/config/config.json'
+    with open(source, 'r') as config_file:
+        config = json.load(config_file)
+        return config[ENV]
+
+def log_cron_status(status, message):
+    db_config = load_config()
+    cursor = None 
+    
+    try:
+        db = mysql.connector.connect(
+            host=db_config['host'],
+            user=db_config['user'],
+            password=db_config['password'],
+            database=db_config['database']
+        )
+        cursor = db.cursor() 
+        cursor.execute("""
+            INSERT INTO cron_job_logs (run_time, status, message)
+            VALUES (%s, %s, %s);
+        """, (datetime.now(), status, message))
+        db.commit()
+
+    except mysql.connector.Error as err:
+        print("Failed to log into database")
+    finally:
+        if cursor is not None:
+            cursor.close() 
+        db.close()
+
+
+def update_index_in_db(index_data):
+    db_config = load_config()
 
     try:
         db = mysql.connector.connect(
@@ -54,44 +97,91 @@ def update_index_in_db(index, env='production'):
             database=db_config['database']
         )
         cursor = db.cursor()
-        cursor.execute("INSERT INTO index_table (date, index_value) VALUES (%s, %s)",
-                       (datetime.now(), index))
+
+        for index in index_data:
+            cursor.execute("""
+                INSERT INTO index_table (year, index_value)
+                VALUES (%s, %s)
+                ON DUPLICATE KEY UPDATE index_value = VALUES(index_value), updated_at = CURRENT_TIMESTAMP;
+            """, (index["year"], index["index_value"]))
+
+            cursor.execute("""
+                INSERT INTO index_components (year, population, household_income, number_of_finishers, number_covered, household_ownership)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE 
+                    population = VALUES(population), 
+                    household_income = VALUES(household_income),
+                    number_of_finishers = VALUES(number_of_finishers),
+                    number_covered = VALUES(number_covered),
+                    household_ownership = VALUES(household_ownership),
+                    updated_at = CURRENT_TIMESTAMP;
+            """, (
+                index["year"],
+                index["components"].get("Population"),
+                index["components"].get("Household Income"),
+                index["components"].get("Number Of Finishers"),
+                index["components"].get("Number Covered"),
+                index["components"].get("Household Ownership")
+            ))
+
         db.commit()
+
+    except mysql.connector.Error as err:
+        log_cron_status('FAILURE', f"Database error: {err}")
+        raise 
+    finally:
         cursor.close()
         db.close()
-    except mysql.connector.Error as e:
-        log_error(f"Database update failed: {e}")
 
-def log_error(message):
-    with open("/var/log/app_errors.log", "a") as log_file:
-        log_file.write(f"{datetime.now()} - ERROR - {message}\n")
-
-def send_email_alert(subject, body):
-    sender_email = "your-email@gmail.com"
-    receiver_email = "recipient-email@gmail.com"
-    password = "your-app-password"
-
-    msg = MIMEText(body)
-    msg['Subject'] = subject
-    msg['From'] = sender_email
-    msg['To'] = receiver_email
-
+def fetch_api_data():
     try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(sender_email, password)
-            server.sendmail(sender_email, receiver_email, msg.as_string())
-    except Exception as e:
-        with open("/var/log/app_errors.log", "a") as log_file:
-            log_file.write(f"{datetime.now()} - ERROR - Failed to send email: {e}\n")
+        response = requests.get(API_URL)
+        response.raise_for_status()  
+        return response.json()["data"]
+    except requests.exceptions.RequestException as err:
+        log_cron_status('FAILURE', f"API request error: {err}")
+        raise 
+
+def fetch_api_years(api_data):
+    return {int(item['Year']) for item in api_data}
+
+def fetch_missing_years_from_db(api_years):
+    db_config = load_config()
+    
+    try:
+        db = mysql.connector.connect(
+            host=db_config['host'],
+            user=db_config['user'],
+            password=db_config['password'],
+            database=db_config['database']
+        )
+        cursor = db.cursor(dictionary=True)
+        format_strings = ','.join(['%s'] * len(api_years))
+        cursor.execute(f"SELECT * FROM index_components WHERE year NOT IN ({format_strings});", tuple(api_years))
+        missing_years_data = cursor.fetchall()
+        return missing_years_data
+
+    except mysql.connector.Error as err:
+        log_cron_status('FAILURE', f"Database error when fetching missing years: {err}")
+        raise
+    finally:
+        cursor.close()
+        db.close()
 
 def main():
-    data = fetch_data_from_api()
-    if data:
-        index = calculate_index(data)
-        update_index_in_db(index)
-    else:
-        log_error("Failed to fetch data from API")
-        send_email_alert("Cron Job Failure", "Failed to fetch data from API")
+    try:
+        data = fetch_api_data()
+        
+        if data:
+            api_years = fetch_api_years(data)            
+            missing_years_data = fetch_missing_years_from_db(api_years)                        
+            index_data = calculate_index(data, missing_years_data)
+            update_index_in_db(index_data)
+            log_cron_status('SUCCESS', 'Index calculation and database update completed successfully.')
+        else:
+            log_cron_status('SUCCESS', 'No new data to process. API returned no data.')
+    except Exception as e:
+        log_cron_status('FAILURE', f"Critical error: {e}")
 
 if __name__ == "__main__":
     main()
