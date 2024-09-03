@@ -9,3 +9,5 @@ SQLAlchemy==2.0.21
 pymysql
 pytest-cov
 requests-mock
+matplotlib
+plotly
