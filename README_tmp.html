@@ -408,12 +408,12 @@ code {
 <h2 id="local-development">Local Development</h2>
 <p>Wanna mess around with the code on your own machine? No problem. Just use the <code>development</code> environment in the <code>config.json</code> file. Run the <code>init_db.py</code> script to set up your local database, and you’re good to go.</p>
 <h2 id="testing">Testing</h2>
-<p>If you want to make sure everything’s working (which you probably should), here’s how you can test it:</p>
+<p>To ensure that everything is working, follow these updated steps to run the tests from the project root using <code>unittest</code>:</p>
 <ol>
 <li>
 <p><strong>Run Tests</strong>:</p>
 <ul>
-<li>You can run the tests like this:<pre class="hljs"><code><div>pytest tests/
+<li>You can run the tests from the project root like this:<pre class="hljs"><code><div>python -m unittest discover -s tests
 </div></code></pre>
 </li>
 </ul>
@@ -421,15 +421,14 @@ code {
 <li>
 <p><strong>Check Coverage</strong>:</p>
 <ul>
-<li>Wanna see how much of the code is covered by tests? Run:<pre class="hljs"><code><div>coverage run -m pytest tests/
+<li>If you want to check how much of the code is covered by tests, run the following commands from the project root:<pre class="hljs"><code><div>coverage run -m unittest discover -s tests
 coverage report
 </div></code></pre>
 </li>
 </ul>
 </li>
 </ol>
-<h2 id="performance-improvement-tools">Performance Improvement Tools</h2>
-<p>I used some tools like <code>pytest</code> for testing and <code>coverage</code> for making sure we didn’t miss anything important. Also, <code>smtplib</code> helps with sending email alerts when something goes wrong. Handy, right?</p>
+<p>Make sure to run these commands from the root directory of your project to ensure the proper paths are used during test discovery and coverage analysis.</p>
 <h2 id="performance-considerations">Performance Considerations</h2>
 <p>To keep things running smoothly, the app also handles database migrations automatically with Alembic. So when the app starts, it’ll make sure your database schema is up to date. No more manual updates needed!</p>
 <h2 id="conclusion">Conclusion</h2>

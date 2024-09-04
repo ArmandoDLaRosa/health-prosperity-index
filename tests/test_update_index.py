@@ -1,38 +1,54 @@
 import unittest
-from unittest.mock import patch, MagicMock
-from src.update_index import fetch_data_from_api, update_index_in_db, log_error
+
+from src.update_index import (calculate_index, fetch_api_years,
+                              impute_missing_values, normalize)
+
+sample_api_data = [
+    {"Year": "2020", "Population": 1000, "Household Income": 50000},
+    {"Year": "2021", "Population": 1100, "Household Income": 51000},
+]
+
+sample_historical_data = [
+    {"year": 2019, "Population": 900, "Household Income": 49000}
+]
 
 class TestUpdateIndex(unittest.TestCase):
 
-    @patch('src.update_index.requests.get')
-    def test_fetch_data_from_api_success(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"index_value": 50}
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
+    def test_normalize(self):
+        # Basic normalization tests
+        self.assertEqual(normalize(50, 0, 100), 0.5)
+        self.assertEqual(normalize(50, 50, 50), 0)  # Degenerate case
+        self.assertEqual(normalize(100, 0, 100), 1)
+        self.assertEqual(normalize(0, 0, 100), 0)
 
-        data = fetch_data_from_api()
-        self.assertEqual(data["index_value"], 50)
+    def test_impute_missing_values(self):
+        # Present value should be retained
+        item = {"Population": 1000}
+        self.assertEqual(impute_missing_values(item, sample_historical_data, "Population"), 1000)
 
-    @patch('src.update_index.mysql.connector.connect')
-    def test_update_index_in_db(self, mock_connect):
-        mock_db = mock_connect.return_value
-        mock_cursor = mock_db.cursor.return_value
+        # Missing value should be imputed from historical data
+        item = {}
+        self.assertEqual(impute_missing_values(item, sample_historical_data, "Population"), 900)
 
-        data = {"index_value": 50}
-        update_index_in_db(data)
+        # Missing key should default to 0 if not found in historical data
+        self.assertEqual(impute_missing_values(item, sample_historical_data, "NonexistentKey"), 0)
 
-        mock_cursor.execute.assert_called_once_with(
-            "INSERT INTO index_table (date, index_value) VALUES (%s, %s)",
-            (unittest.mock.ANY, 50)
-        )
+    def test_calculate_index(self):
+        # Test index calculation for multiple years of data
+        index_data = calculate_index(sample_api_data, sample_historical_data)
+        self.assertEqual(len(index_data), 2)
+        
+        # Ensure expected keys are present
+        self.assertIn("year", index_data[0])
+        self.assertIn("index_value", index_data[0])
 
-    @patch('src.update_index.log_error')
-    def test_fetch_data_from_api_failure(self, mock_log_error):
-        with patch('src.update_index.requests.get', side_effect=Exception("API Error")):
-            data = fetch_data_from_api()
-            self.assertIsNone(data)
-            mock_log_error.assert_called_with("API request failed: API Error")
+        # Check if index values are within expected bounds
+        self.assertTrue(0 <= index_data[0]["index_value"] <= 1)
+        self.assertTrue(0 <= index_data[1]["index_value"] <= 1)
+
+    def test_fetch_api_years(self):
+        # Ensure correct years are fetched from API data
+        self.assertEqual(fetch_api_years(sample_api_data), {2020, 2021})
 
 if __name__ == "__main__":
     unittest.main()

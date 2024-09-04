@@ -39,23 +39,22 @@ There’s a cron job running every 5 minutes to fetch the latest data and update
 Wanna mess around with the code on your own machine? No problem. Just use the `development` environment in the `config.json` file. Run the `init_db.py` script to set up your local database, and you’re good to go.
 
 ## Testing
-If you want to make sure everything’s working (which you probably should), here’s how you can test it:
+To ensure that everything is working, follow these updated steps to run the tests from the project root using `unittest`:
 
 1. **Run Tests**:
-   - You can run the tests like this:
+   - You can run the tests from the project root like this:
      ```bash
-     pytest tests/
+     python -m unittest discover -s tests
      ```
 
 2. **Check Coverage**:
-   - Wanna see how much of the code is covered by tests? Run:
+   - If you want to check how much of the code is covered by tests, run the following commands from the project root:
      ```bash
-     coverage run -m pytest tests/
+     coverage run -m unittest discover -s tests
      coverage report
      ```
 
-## Performance Improvement Tools
-I used some tools like `pytest` for testing and `coverage` for making sure we didn’t miss anything important. Also, `smtplib` helps with sending email alerts when something goes wrong. Handy, right?
+Make sure to run these commands from the root directory of your project to ensure the proper paths are used during test discovery and coverage analysis.
 
 ## Performance Considerations
 To keep things running smoothly, the app also handles database migrations automatically with Alembic. So when the app starts, it’ll make sure your database schema is up to date. No more manual updates needed!
